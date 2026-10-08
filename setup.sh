@@ -4,9 +4,6 @@
 lib32="x32"
 lib64="x64"
 
-# lib32="x64"
-# lib64="x32"
-
 # đường dẫn tuyệt đối của thư mục chứa tệp thực thi
 basedir=$(dirname "$(readlink -f "$0")")
 
@@ -20,15 +17,13 @@ fi
 # tham số tiếp theo
 shift
 
-# TODO
-# phòng trường hợp: --symlink --symlink
 file_cmd="cp -v"
-while (($# > 0)); do
+if [ $# -gt 0 ]; then
   [[ $1 = "--symlink" ]] && file_cmd="ln -s -v"
-  shift
-done
+fi
 
 # kiểm tra Wine
+export WINEPREFIX="${WINEPREFIX:-$HOME/.wine}"
 if [ -n "$WINEPREFIX" ] && ! [ -f "$WINEPREFIX/system.reg" ]; then
   echo "$WINEPREFIX: Không phải là môi trường Wine hợp lệ" >&2
   exit 1
@@ -89,29 +84,14 @@ win32=true
 
 # tạo lại các thư viện .dll nếu thiếu
 $wineboot -u
-win64_sys_path="$($wine cmd /c '%SystemRoot%\system32\winepath.exe -u C:\windows\system32' 2>/dev/null)"
 
-# loại bỏ kí tự \r (trên Windows nếu có)
-win64_sys_path="${win64_sys_path/$'\r'/}"
-
-[ -z "$win64_sys_path" ] && win64=false
-if grep -q -e '#arch=win32' "${WINEPREFIX:-$HOME/.wine}/system.reg"; then
+win64_sys_path="$WINEPREFIX/drive_c/windows/system32"
+if grep -q -e '#arch=win32' "$WINEPREFIX/system.reg"; then
   win32_sys_path=$win64_sys_path
   win64=false
-  win32=true
 else
-  win32_sys_path="$($wine cmd /c '%SystemRoot%\syswow64\winepath.exe -u C:\windows\system32' 2>/dev/null)"
-  win32_sys_path="${win32_sys_path/$'\r'/}"
-  [ -z "$win32_sys_path" ] && win32=false
+  win32_sys_path="$WINEPREFIX/drive_c/windows/syswow64"
 fi
-
-if [ -z "$win32_sys_path" ] && [ -z "$win64_sys_path" ]; then
-  echo 'Lỗi đường dẫn C:\windows\system32' >&2
-  exit 1
-fi
-
-echo $win32_sys_path
-echo $win64_sys_path
 
 overrideDll() {
   if ! $wine reg add 'HKEY_CURRENT_USER\Software\Wine\DllOverrides' /v "$1" /d native,builtin /f >/dev/null 2>&1
