@@ -77,9 +77,7 @@ if [ -z "$winever" ]; then
 fi
 
 echo "Sử dụng: $winever"
-
 wineboot="$wine wineboot"
-win64=true
 win32=true
 
 # tạo lại các thư viện .dll nếu thiếu
@@ -91,6 +89,7 @@ if grep -q -e '#arch=win32' "$WINEPREFIX/system.reg"; then
   win64=false
 else
   win32_sys_path="$WINEPREFIX/drive_c/windows/syswow64"
+  win64=true
 fi
 
 overrideDll() {
@@ -108,7 +107,6 @@ restoreDll() {
   fi
 }
 
-# TODO
 installFile() {
   dstfile="${1}/${3}.dll"
   srcfile="${basedir}/${2}/${3}.dll"
@@ -117,24 +115,20 @@ installFile() {
     return 1
   fi
 
-  if [ -n "$1" ]; then
-    if [ -f "${dstfile}" ] || [ -L "${dstfile}" ]; then
-      if ! [ -f "${dstfile}.old" ]; then
-        mv -v "${dstfile}" "${dstfile}.old"
-      else
-        rm -v "${dstfile}"
-      fi
+  if [ -f "${dstfile}" ] || [ -L "${dstfile}" ]; then
+    if ! [ -f "${dstfile}.old" ]; then
+      mv -v "${dstfile}" "${dstfile}.old"
     else
-      touch "${dstfile}.old_none"
+      rm -v "${dstfile}"
     fi
-
-    $file_cmd "${srcfile}" "${dstfile}"
+  else
+    touch "${dstfile}.old_none"
   fi
 
+  $file_cmd "${srcfile}" "${dstfile}"
   return 0
 }
 
-# TODO
 uninstallFile() {
   dstfile="${1}/${3}.dll"
   srcfile="${basedir}/${2}/${3}.dll"
@@ -143,7 +137,7 @@ uninstallFile() {
     return 1
   fi
 
-  if ! [ -f "${dstfile}" ] && ! [ -h "${dstfile}" ]; then
+  if ! [ -f "${dstfile}" ] && ! [ -L "${dstfile}" ]; then
     echo "${dstfile}: Không tìm thấy tệp. Bỏ qua" >&2
     return 1
   fi
